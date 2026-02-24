@@ -1,0 +1,14 @@
+{
+  "name": "kubauto-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "resend": "^6.9.2"
+  }
+}
