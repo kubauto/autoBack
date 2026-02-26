@@ -5,42 +5,50 @@ import { Resend } from "resend";
 
 const app = express();
 
-/* =========================
-   CONFIG
-========================= */
 
 const PORT = Number(process.env.PORT || 3001);
 const TO_EMAIL = process.env.TO_EMAIL || "rudoy.kolya@gmail.com";
-const PUBLIC_ORIGINS = [
-    "https://<USERNAME>.github.io", // <-- замени
-    "http://localhost:5173",        // dev
-];
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+if (!RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is missing. Email sending will fail.");
+}
+const resend = new Resend(RESEND_API_KEY);
 
-/* =========================
-   MIDDLEWARE
-========================= */
+const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-app.use(cors());
+
+app.use(
+    cors({
+        origin: (origin, cb) => {
+            if (!origin) return cb(null, true);
+
+            // local dev
+            if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return cb(null, true);
+
+            // explicit allowlist (Vercel + custom domain)
+            if (FRONTEND_ORIGINS.includes(origin)) return cb(null, true);
+
+            return cb(new Error("Not allowed by CORS"));
+        },
+    })
+);
 
 app.use(express.json({ limit: "1mb" }));
 
-/* =========================
-   HELPERS
-========================= */
 
-const normalizePhone = (v) =>
-    String(v || "").trim().replace(/[()\s-]/g, "");
+app.get("/health", (req, res) => {
+    res.status(200).json({ ok: true });
+});
 
+
+const normalizePhone = (v) => String(v || "").trim().replace(/[()\s-]/g, "");
 const E164 = /^\+?[1-9]\d{7,14}$/;
+const safe = (v, max = 5000) => String(v ?? "").replace(/\r/g, "").slice(0, max).trim();
 
-const safe = (v, max = 5000) =>
-    String(v ?? "").replace(/\r/g, "").slice(0, max).trim();
-
-/* =========================
-   PRE-ORDER
-========================= */
 
 app.post("/api/preorder", async (req, res) => {
     try {
@@ -50,14 +58,9 @@ app.post("/api/preorder", async (req, res) => {
         if (b.companyWebsite) return res.json({ ok: true });
 
         const phone = normalizePhone(b.phone);
-        if (!E164.test(phone)) {
-            return res.status(400).send("Invalid phone format");
-        }
+        if (!E164.test(phone)) return res.status(400).send("Invalid phone format");
 
-        const subject = `KUB AUTO Pre-Order: ${safe(b.make, 80)} ${safe(
-            b.model,
-            80
-        )} (${safe(b.year, 10)})`;
+        const subject = `KUB AUTO Pre-Order: ${safe(b.make, 80)} ${safe(b.model, 80)} (${safe(b.year, 10)})`;
 
         const text = `
 PRE-ORDER REQUEST
@@ -82,7 +85,7 @@ Buyer:
         await resend.emails.send({
             from: "KUB AUTO <onboarding@resend.dev>",
             to: TO_EMAIL,
-            reply_to: b.email || undefined,
+            replyTo: b.email || undefined,
             subject,
             text,
         });
@@ -93,10 +96,6 @@ Buyer:
         return res.status(500).send("Failed to send email");
     }
 });
-
-/* =========================
-   CONTACT
-========================= */
 
 app.post("/api/contact", async (req, res) => {
     try {
@@ -109,10 +108,8 @@ app.post("/api/contact", async (req, res) => {
         const message = safe(b.message, 3000);
 
         if (!name) return res.status(400).send("Name required");
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-            return res.status(400).send("Valid email required");
-        if (message.length < 10)
-            return res.status(400).send("Message too short");
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).send("Valid email required");
+        if (message.length < 10) return res.status(400).send("Message too short");
 
         const subject = `KUB AUTO Contact: ${name}`;
 
@@ -130,7 +127,7 @@ ${message}
         await resend.emails.send({
             from: "KUB AUTO <onboarding@resend.dev>",
             to: TO_EMAIL,
-            reply_to: email,
+            replyTo: email,
             subject,
             text,
         });
@@ -141,10 +138,6 @@ ${message}
         return res.status(500).send("Failed to send email");
     }
 });
-
-/* =========================
-   START
-========================= */
 
 app.listen(PORT, () => {
     console.log(`API running on port ${PORT}`);
