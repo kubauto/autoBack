@@ -80,11 +80,8 @@ Buyer:
 - Phone: ${phone}
 - Email: ${safe(b.email, 200)}
 `.trim();
-        console.log("TO_EMAIL:", TO_EMAIL);
-        console.log("RESEND_API_KEY present:", Boolean(process.env.RESEND_API_KEY));
-        console.log("RESEND_API_KEY prefix:", String(process.env.RESEND_API_KEY || "").slice(0, 6));
         await resend.emails.send({
-            from: "KUB AUTO <onboarding@resend.dev>",
+            from: TO_EMAIL,
             to: TO_EMAIL,
             reply_to: b.email || undefined,
             subject,
@@ -128,7 +125,7 @@ ${message}
 `.trim();
 
         await resend.emails.send({
-            from: "KUB AUTO <onboarding@resend.dev>",
+            from: TO_EMAIL,
             to: TO_EMAIL,
             reply_to: email,
             subject,
