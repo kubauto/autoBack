@@ -5,7 +5,6 @@ import { Resend } from "resend";
 
 const app = express();
 
-
 const PORT = Number(process.env.PORT || 3001);
 const TO_EMAIL = process.env.TO_EMAIL || "rudoy.kolya@gmail.com";
 
@@ -15,31 +14,22 @@ if (!RESEND_API_KEY) {
 }
 const resend = new Resend(RESEND_API_KEY);
 
-
 const ALLOWED_ORIGINS = [
     "https://auto-nine-zeta.vercel.app",
     "https://kubauto.lt",
 ];
 
-app.use(
-    cors({
-        origin: (origin, cb) => {
-            if (!origin) return cb(null, true);
-
-            if (ALLOWED_ORIGINS.includes(origin)) {
-                return cb(null, true);
-            }
-
-            return cb(null, false);
-        },
-        methods: ["GET", "POST", "OPTIONS"],
-        allowedHeaders: ["Content-Type"],
-    })
-);
-
-app.options(/.*/, cors());
 
 app.use(express.json({ limit: "1mb" }));
+const corsMiddleware = cors({
+    origin: ALLOWED_ORIGINS,
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+});
+
+app.use(corsMiddleware);
+
+app.options(/.*/, corsMiddleware);
 
 
 app.get("/health", (req, res) => {
@@ -49,7 +39,9 @@ app.get("/health", (req, res) => {
 
 const normalizePhone = (v) => String(v || "").trim().replace(/[()\s-]/g, "");
 const E164 = /^\+?[1-9]\d{7,14}$/;
-const safe = (v, max = 5000) => String(v ?? "").replace(/\r/g, "").slice(0, max).trim();
+
+const safe = (v, max = 5000) =>
+    String(v ?? "").replace(/\r/g, "").slice(0, max).trim();
 
 
 app.post("/api/preorder", async (req, res) => {
@@ -60,9 +52,14 @@ app.post("/api/preorder", async (req, res) => {
         if (b.companyWebsite) return res.json({ ok: true });
 
         const phone = normalizePhone(b.phone);
-        if (!E164.test(phone)) return res.status(400).send("Invalid phone format");
+        if (!E164.test(phone)) {
+            return res.status(400).send("Invalid phone format");
+        }
 
-        const subject = `KUB AUTO Pre-Order: ${safe(b.make, 80)} ${safe(b.model, 80)} (${safe(b.year, 10)})`;
+        const subject = `KUB AUTO Pre-Order: ${safe(b.make, 80)} ${safe(
+            b.model,
+            80
+        )} (${safe(b.year, 10)})`;
 
         const text = `
 PRE-ORDER REQUEST
@@ -110,7 +107,9 @@ app.post("/api/contact", async (req, res) => {
         const message = safe(b.message, 3000);
 
         if (!name) return res.status(400).send("Name required");
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).send("Valid email required");
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).send("Valid email required");
+        }
         if (message.length < 10) return res.status(400).send("Message too short");
 
         const subject = `KUB AUTO Contact: ${name}`;
@@ -140,6 +139,7 @@ ${message}
         return res.status(500).send("Failed to send email");
     }
 });
+
 
 app.listen(PORT, () => {
     console.log(`API running on port ${PORT}`);
