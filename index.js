@@ -80,14 +80,18 @@ Buyer:
 - Phone: ${phone}
 - Email: ${safe(b.email, 200)}
 `.trim();
-
+        console.log("TO_EMAIL:", TO_EMAIL);
+        console.log("RESEND_API_KEY present:", Boolean(process.env.RESEND_API_KEY));
+        console.log("RESEND_API_KEY prefix:", String(process.env.RESEND_API_KEY || "").slice(0, 6));
         await resend.emails.send({
             from: "KUB AUTO <onboarding@resend.dev>",
             to: TO_EMAIL,
-            replyTo: b.email || undefined,
+            reply_to: b.email || undefined,
             subject,
             text,
         });
+        const result = await resend.emails.send({...});
+        console.log("Resend send result:", result);
 
         return res.json({ ok: true });
     } catch (e) {
@@ -128,7 +132,7 @@ ${message}
         await resend.emails.send({
             from: "KUB AUTO <onboarding@resend.dev>",
             to: TO_EMAIL,
-            replyTo: email,
+            reply_to: email,
             subject,
             text,
         });
