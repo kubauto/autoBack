@@ -15,27 +15,29 @@ if (!RESEND_API_KEY) {
 }
 const resend = new Resend(RESEND_API_KEY);
 
-const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
 
+const ALLOWED_ORIGINS = [
+    "https://auto-nine-zeta.vercel.app",
+    "https://kubauto.lt",
+];
 
 app.use(
     cors({
         origin: (origin, cb) => {
             if (!origin) return cb(null, true);
 
-            // local dev
-            if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return cb(null, true);
+            if (ALLOWED_ORIGINS.includes(origin)) {
+                return cb(null, true);
+            }
 
-            // explicit allowlist (Vercel + custom domain)
-            if (FRONTEND_ORIGINS.includes(origin)) return cb(null, true);
-
-            return cb(new Error("Not allowed by CORS"));
+            return cb(null, false);
         },
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Content-Type"],
     })
 );
+
+app.options("*", cors());
 
 app.use(express.json({ limit: "1mb" }));
 
