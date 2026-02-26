@@ -37,7 +37,7 @@ app.use(
     })
 );
 
-app.options("*", cors());
+app.options(/.*/, cors());
 
 app.use(express.json({ limit: "1mb" }));
 
