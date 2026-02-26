@@ -90,8 +90,6 @@ Buyer:
             subject,
             text,
         });
-        const result = await resend.emails.send({...});
-        console.log("Resend send result:", result);
 
         return res.json({ ok: true });
     } catch (e) {
