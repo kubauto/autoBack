@@ -1,12 +1,15 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { Resend } from "resend";
+import {Resend} from "resend";
 
 const app = express();
 
 const PORT = Number(process.env.PORT || 3001);
+
 const TO_EMAIL = process.env.TO_EMAIL || "rudoy.kolya@gmail.com";
+
+const FROM_EMAIL = process.env.FROM_EMAIL || "info@kubauto.lt";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 if (!RESEND_API_KEY) {
@@ -17,49 +20,47 @@ const resend = new Resend(RESEND_API_KEY);
 const ALLOWED_ORIGINS = [
     "https://auto-nine-zeta.vercel.app",
     "https://kubauto.lt",
+    "https://www.kubauto.lt",
 ];
 
-
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({limit: "1mb"}));
 const corsMiddleware = cors({
     origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
 });
-
 app.use(corsMiddleware);
-
 app.options(/.*/, corsMiddleware);
 
-
 app.get("/health", (req, res) => {
-    res.status(200).json({ ok: true });
+    res.status(200).json({ok: true});
 });
-
 
 const normalizePhone = (v) => String(v || "").trim().replace(/[()\s-]/g, "");
 const E164 = /^\+?[1-9]\d{7,14}$/;
-
 const safe = (v, max = 5000) =>
     String(v ?? "").replace(/\r/g, "").slice(0, max).trim();
 
+function logResendError(e) {
+    console.error("Resend send failed:");
+    console.error("message:", e?.message);
+    console.error("name:", e?.name);
+    console.error("statusCode:", e?.statusCode);
+    console.error("response:", e?.response); // often contains details
+}
 
 app.post("/api/preorder", async (req, res) => {
     try {
         const b = req.body || {};
-
-        // honeypot
-        if (b.companyWebsite) return res.json({ ok: true });
+        if (b.companyWebsite) return res.json({ok: true});
 
         const phone = normalizePhone(b.phone);
-        if (!E164.test(phone)) {
-            return res.status(400).send("Invalid phone format");
-        }
+        if (!E164.test(phone)) return res.status(400).send("Invalid phone format");
 
-        const subject = `KUB AUTO Pre-Order: ${safe(b.make, 80)} ${safe(
-            b.model,
-            80
-        )} (${safe(b.year, 10)})`;
+        const subject = `KUB AUTO Pre-Order: ${safe(b.make, 80)} ${safe(b.model, 80)} (${safe(
+            b.year,
+            10
+        )})`;
 
         const text = `
 PRE-ORDER REQUEST
@@ -80,17 +81,18 @@ Buyer:
 - Phone: ${phone}
 - Email: ${safe(b.email, 200)}
 `.trim();
-        await resend.emails.send({
-            from: TO_EMAIL,
+
+        const result = await resend.emails.send({
+            from: FROM_EMAIL,
             to: TO_EMAIL,
             reply_to: b.email || undefined,
             subject,
             text,
         });
 
-        return res.json({ ok: true });
+        return res.json({ok: true, id: result?.data?.id});
     } catch (e) {
-        console.error(e);
+        logResendError(e);
         return res.status(500).send("Failed to send email");
     }
 });
@@ -98,8 +100,7 @@ Buyer:
 app.post("/api/contact", async (req, res) => {
     try {
         const b = req.body || {};
-
-        if (b.companyWebsite) return res.json({ ok: true });
+        if (b.companyWebsite) return res.json({ok: true});
 
         const name = safe(b.name, 140);
         const email = safe(b.email, 200);
@@ -124,21 +125,20 @@ Message:
 ${message}
 `.trim();
 
-        await resend.emails.send({
-            from: TO_EMAIL,
+        const result = await resend.emails.send({
+            from: FROM_EMAIL,
             to: TO_EMAIL,
             reply_to: email,
             subject,
             text,
         });
 
-        return res.json({ ok: true });
+        return res.json({ok: true, id: result?.data?.id});
     } catch (e) {
-        console.error(e);
+        logResendError(e);
         return res.status(500).send("Failed to send email");
     }
 });
-
 
 app.listen(PORT, () => {
     console.log(`API running on port ${PORT}`);
