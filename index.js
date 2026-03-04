@@ -7,7 +7,7 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 3001);
 
-const TO_EMAIL = process.env.TO_EMAIL || "rudoy.kolya@gmail.com";
+const TO_EMAIL = process.env.TO_EMAIL || "info@kubauto.lt";
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "info@kubauto.lt";
 
@@ -84,7 +84,7 @@ Buyer:
 
         const result = await resend.emails.send({
             from: FROM_EMAIL,
-            to: TO_EMAIL,
+            to: [TO_EMAIL, 'valdisspeal@gmail.com'],
             reply_to: b.email || undefined,
             subject,
             text,
@@ -127,7 +127,7 @@ ${message}
 
         const result = await resend.emails.send({
             from: FROM_EMAIL,
-            to: TO_EMAIL,
+            to: [TO_EMAIL, 'valdisspeal@gmail.com'],
             reply_to: email,
             subject,
             text,
